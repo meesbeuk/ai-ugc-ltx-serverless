@@ -10,10 +10,10 @@ FROM wlsdml1114/engui_genai-base_ada:1.1
 # the engui base wires its CUDA/torch python env via login-shell profile scripts, so every build
 # step (and the runtime CMD) must run under a LOGIN shell or pip lands in the wrong interpreter.
 SHELL ["/bin/bash", "-lc"]
-ENV DEBIAN_FRONTEND=noninteractive HF_HUB_ENABLE_HF_TRANSFER=1 COMFY_DIR=/opt/ComfyUI PYTHONUNBUFFERED=1
+ENV DEBIAN_FRONTEND=noninteractive COMFY_DIR=/opt/ComfyUI PYTHONUNBUFFERED=1
 
 RUN apt-get update -qq && apt-get install -y -qq git ffmpeg wget && rm -rf /var/lib/apt/lists/*
-RUN pip install --no-cache-dir runpod "huggingface_hub[hf_transfer]"
+RUN pip install --no-cache-dir runpod huggingface_hub
 
 # ComfyUI core
 RUN git clone --depth 1 https://github.com/comfyanonymous/ComfyUI.git /opt/ComfyUI \
@@ -32,11 +32,11 @@ RUN set -e; for url in \
       [ -f "$(basename "$url")/requirements.txt" ] && pip install --no-cache-dir -r "$(basename "$url")/requirements.txt" || true; \
     done
 
-# --- model weights BAKED IN (lean distilled set; public non-gated repos, hf_transfer for speed) ---
+# --- model weights BAKED IN (lean distilled set; public non-gated repos; hf CLI + xet transfer) ---
 RUN mkdir -p /opt/ComfyUI/models/checkpoints /opt/ComfyUI/models/text_encoders \
- && huggingface-cli download Lightricks/LTX-2.3-fp8 ltx-2.3-22b-distilled-fp8.safetensors --local-dir /tmp/w \
+ && hf download Lightricks/LTX-2.3-fp8 ltx-2.3-22b-distilled-fp8.safetensors --local-dir /tmp/w \
  && mv /tmp/w/ltx-2.3-22b-distilled-fp8.safetensors /opt/ComfyUI/models/checkpoints/ \
- && huggingface-cli download Comfy-Org/ltx-2 split_files/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors --local-dir /tmp/w \
+ && hf download Comfy-Org/ltx-2 split_files/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors --local-dir /tmp/w \
  && mv /tmp/w/split_files/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors /opt/ComfyUI/models/text_encoders/ \
  && rm -rf /tmp/w \
  && ls -la /opt/ComfyUI/models/checkpoints /opt/ComfyUI/models/text_encoders
