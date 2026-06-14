@@ -4,6 +4,7 @@
 set -uo pipefail
 COMFY=/opt/ComfyUI
 export COMFY_DIR=$COMFY
+mkdir -p /workspace
 
 { echo "models/checkpoints:"; ls -la "$COMFY/models/checkpoints" 2>&1; \
   echo "models/text_encoders:"; ls -la "$COMFY/models/text_encoders" 2>&1; } > /workspace/bootstrap.log 2>&1
