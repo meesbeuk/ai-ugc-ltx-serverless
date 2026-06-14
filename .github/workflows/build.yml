@@ -29,6 +29,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: docker/build-push-action@v6
+        env:
+          # the image push succeeds; it was the post-step "buildx history export" (build summary /
+          # record archive) that ran the runner out of disk. skip it — it's cosmetic.
+          DOCKER_BUILD_SUMMARY: "false"
+          DOCKER_BUILD_RECORD_UPLOAD: "false"
         with:
           context: .
           push: true
