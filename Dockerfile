@@ -32,13 +32,14 @@ RUN set -e; for url in \
       [ -f "$(basename "$url")/requirements.txt" ] && pip install --no-cache-dir -r "$(basename "$url")/requirements.txt" || true; \
     done
 
-# --- model weights BAKED IN (lean distilled set; public non-gated repos; hf CLI + xet transfer) ---
+# --- model weights BAKED IN (lean distilled set; public non-gated repos) ---
+# plain wget straight to the final path: no hf-xet (its writer crashed mid-download), no temp-copy
+# doubling, follows the HF CDN redirect. -c resumes if a transfer hiccups.
 RUN mkdir -p /opt/ComfyUI/models/checkpoints /opt/ComfyUI/models/text_encoders \
- && hf download Lightricks/LTX-2.3-fp8 ltx-2.3-22b-distilled-fp8.safetensors --local-dir /tmp/w \
- && mv /tmp/w/ltx-2.3-22b-distilled-fp8.safetensors /opt/ComfyUI/models/checkpoints/ \
- && hf download Comfy-Org/ltx-2 split_files/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors --local-dir /tmp/w \
- && mv /tmp/w/split_files/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors /opt/ComfyUI/models/text_encoders/ \
- && rm -rf /tmp/w \
+ && wget -c -q -O /opt/ComfyUI/models/checkpoints/ltx-2.3-22b-distilled-fp8.safetensors \
+      "https://huggingface.co/Lightricks/LTX-2.3-fp8/resolve/main/ltx-2.3-22b-distilled-fp8.safetensors?download=true" \
+ && wget -c -q -O /opt/ComfyUI/models/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors \
+      "https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors?download=true" \
  && ls -la /opt/ComfyUI/models/checkpoints /opt/ComfyUI/models/text_encoders
 
 COPY handler.py /workspace/serverless/handler.py
