@@ -13,10 +13,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # the engui base + ComfyUI deps make a ~16-20GB image; free up runner disk first
+      # weights baked in -> ~57GB image; aggressively free runner disk first
       - name: Free disk space
         run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /opt/hostedtoolcache /usr/local/share/boost /usr/share/swift \
+                      /usr/local/lib/node_modules /usr/local/.ghcup || true
           sudo docker image prune -af || true
           df -h /
 
