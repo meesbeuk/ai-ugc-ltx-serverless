@@ -20,6 +20,11 @@ for p in ("torch","torchvision","torchaudio"):
     try: print(p+"=="+m.version(p))
     except Exception: pass
 PY
+# Pin kornia to the last release that still re-exports `pad` from
+# kornia.geometry.transform.pyramid. ComfyUI-LTXVideo (unpinned `kornia`) imports `pad` there;
+# kornia 0.8.3 dropped that re-export, so latest-kornia makes the WHOLE LTXVideo node pack fail to
+# import (no LTX nodes -> nothing renders). The constraint makes the node's own install resolve to 0.8.2.
+RUN echo "kornia==0.8.2" >> /constraints.txt
 ENV PIP_CONSTRAINT=/constraints.txt
 
 # ComfyUI core (torch already satisfied by the base + constraint)
@@ -36,6 +41,10 @@ RUN for url in \
       d=$(basename "$url"); git clone --depth 1 "$url" "$d"; \
       if [ -f "$d/requirements.txt" ]; then timeout 600 pip install --only-binary=:all: -r "$d/requirements.txt" || timeout 600 pip install -r "$d/requirements.txt" || true; fi; \
     done
+# Belt-and-suspenders: force the kornia pin even if a node's resolver bumped it. Verify the exact
+# import that was crashing actually resolves at BUILD time, so a bad kornia fails the build (not prod).
+RUN pip install "kornia==0.8.2" \
+ && python -c "from kornia.geometry.transform.pyramid import PyrUp, build_laplacian_pyramid, build_pyramid, find_next_powerof_two, is_powerof_two, pad; print('kornia import OK', __import__('kornia').__version__)"
 
 # --- weights BAKED IN (separate steps so the log shows which file; hard timeouts, retries, no hf-xet) ---
 RUN mkdir -p /opt/ComfyUI/models/checkpoints /opt/ComfyUI/models/text_encoders \
