@@ -1,8 +1,9 @@
-# LTX-2.3 serverless worker — LEAN self-contained image (multi-DC, no volume).
-# Official PyTorch+CUDA base (~7GB) + ComfyUI core + only the nodes the LTX i2v graph uses + the
-# lean weight set (distilled + gemma, 39GB). ~50GB final. HARDENED so no step can silently hang:
-# every heavy op is wrapped in `timeout`, torch is pinned (no resolver churn), wheels-only (no
-# surprise compiles), wget has real timeouts+retries. A hang becomes a fast visible failure.
+# LTX-2.3 serverless worker — DEPS-ONLY image (weights live on a network volume, NOT baked).
+# Official PyTorch+CUDA base (~7GB) + ComfyUI core + only the nodes the LTX i2v graph uses.
+# ~8GB final, so cold pulls are fast. The 42GB weight set loads from the mounted volume at runtime
+# (start.sh symlinks /runpod-volume weights into ComfyUI/models). Deps (incl. the kornia 0.8.2 pin)
+# are baked + import-checked at BUILD time, so there's NO per-boot install and no dependency drift.
+# HARDENED: every heavy op wrapped in `timeout`, torch pinned (no resolver churn), wheels-only.
 FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive COMFY_DIR=/opt/ComfyUI PYTHONUNBUFFERED=1 \
@@ -46,14 +47,7 @@ RUN for url in \
 RUN pip install "kornia==0.8.2" \
  && python -c "from kornia.geometry.transform.pyramid import PyrUp, build_laplacian_pyramid, build_pyramid, find_next_powerof_two, is_powerof_two, pad; print('kornia import OK', __import__('kornia').__version__)"
 
-# --- weights BAKED IN (separate steps so the log shows which file; hard timeouts, retries, no hf-xet) ---
-RUN mkdir -p /opt/ComfyUI/models/checkpoints /opt/ComfyUI/models/text_encoders \
- && timeout 2400 wget --timeout=60 --read-timeout=120 --tries=30 -c -O /opt/ComfyUI/models/checkpoints/ltx-2.3-22b-distilled-fp8.safetensors \
-      "https://huggingface.co/Lightricks/LTX-2.3-fp8/resolve/main/ltx-2.3-22b-distilled-fp8.safetensors?download=true"
-RUN timeout 1200 wget --timeout=60 --read-timeout=120 --tries=30 -c -O /opt/ComfyUI/models/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors \
-      "https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors?download=true" \
- && ls -la /opt/ComfyUI/models/checkpoints /opt/ComfyUI/models/text_encoders
-
+# NO weights baked — they live on the network volume and are symlinked in by start.sh at boot.
 COPY handler.py /workspace/serverless/handler.py
 COPY start.sh   /start.sh
 RUN chmod +x /start.sh
